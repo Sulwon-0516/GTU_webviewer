@@ -9,13 +9,15 @@ export class SplatBuffer {
     static ScaleComponentCount = 3;
     static RotationComponentCount = 4;
     static ColorComponentCount = 4;
+    static LbsWeightComponentCount = 24;
 
     static CompressionLevels = {
         0: {
-            BytesPerCenter: 12,
+            BytesPerCenter: 12,     // 4 * 3
             BytesPerScale: 12,
-            BytesPerColor: 4,
+            BytesPerColor: 4,       // cOLOR is represented together with opacity (4 x 1)
             BytesPerRotation: 16,
+            bytesPerLbsWeights: 96, //  4 x 24
             ScaleRange: 1
         },
         1: {
@@ -23,6 +25,7 @@ export class SplatBuffer {
             BytesPerScale: 6,
             BytesPerColor: 4,
             BytesPerRotation: 8,
+            bytesPerLbsWeights: 48, // 2 x 24
             ScaleRange: 32767
         }
     };
@@ -59,8 +62,9 @@ export class SplatBuffer {
         this.bytesPerScale = SplatBuffer.CompressionLevels[this.compressionLevel].BytesPerScale;
         this.bytesPerColor = SplatBuffer.CompressionLevels[this.compressionLevel].BytesPerColor;
         this.bytesPerRotation = SplatBuffer.CompressionLevels[this.compressionLevel].BytesPerRotation;
+        this.bytesPerLbsWeights = SplatBuffer.CompressionLevels[this.compressionLevel].bytesPerLbsWeights;
 
-        this.bytesPerSplat = this.bytesPerCenter + this.bytesPerScale + this.bytesPerColor + this.bytesPerRotation;
+        this.bytesPerSplat = this.bytesPerCenter + this.bytesPerScale + this.bytesPerColor + this.bytesPerRotation + this.bytesPerLbsWeights;
 
         this.linkBufferArrays();
     }
@@ -75,6 +79,9 @@ export class SplatBuffer {
         this.rotationArray = new FloatArray(this.splatBufferData,
                                              (this.bytesPerCenter + this.bytesPerScale + this.bytesPerColor) * this.splatCount,
                                               this.splatCount * SplatBuffer.RotationComponentCount);
+        this.lbsweightArray = new FloatArray(this.splatBufferData,
+                                             (this.bytesPerCenter + this.bytesPerScale + this.bytesPerColor + this.bytesPerRotation) * this.splatCount,
+                                              this.splatCount * SplatBuffer.LbsWeightComponentCount);
         this.bucketsBase = this.splatCount * this.bytesPerSplat;
     }
 
@@ -170,7 +177,17 @@ export class SplatBuffer {
                 center.z = this.centerArray[centerSrcBase + 2];
             }
             if (transform) {
-                center.applyMatrix4(transform);
+                if (Array.isArray(transform)) {
+                    // Check if 'i' is within the bounds of the array
+                    if (i >= 0 && i < transform.length) {
+                        center.applyMatrix4(transform[i]);
+                    } else {
+                        console.warn('Index i is out of bounds for the transform array.');
+                    }
+                } else {
+                    // 'transform' is assumed to be a single Matrix4
+                    center.applyMatrix4(transform);
+                }
             }
             outCenterArray[centerDestBase] = center.x;
             outCenterArray[centerDestBase + 1] = center.y;
@@ -212,10 +229,24 @@ export class SplatBuffer {
             const covBase = SplatBuffer.CovarianceSizeFloats * (i + destOffset);
 
             if (transform) {
-                transform3x3.setFromMatrix4(transform);
-                transform3x3Transpose.copy(transform3x3).transpose();
-                transformedCovariance.multiply(transform3x3Transpose);
-                transformedCovariance.premultiply(transform3x3);
+                if (Array.isArray(transform)) {
+                    // Check if 'i' is within the bounds of the array
+                    if (i >= 0 && i < transform.length) {
+                        transform3x3.setFromMatrix4(transform[i]);
+                        transform3x3Transpose.copy(transform3x3).transpose();
+                        transformedCovariance.multiply(transform3x3Transpose);
+                        transformedCovariance.premultiply(transform3x3);
+                    } else {
+                        console.warn('Index i is out of bounds for the transform array.');
+                    }
+                } else {
+                    // 'transform' is assumed to be a single Matrix4
+                    transform3x3.setFromMatrix4(transform);
+                    transform3x3Transpose.copy(transform3x3).transpose();
+                    transformedCovariance.multiply(transform3x3Transpose);
+                    transformedCovariance.premultiply(transform3x3);
+                }
+                
             }
 
             covarianceArray[covBase] = transformedCovariance.elements[0];

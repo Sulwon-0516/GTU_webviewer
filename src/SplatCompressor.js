@@ -23,9 +23,11 @@ class UncompressedSplatArray {
         this.f_dc_1 = [];
         this.f_dc_2 = [];
         this.opacity = [];
+        this.lbs_weights = [];
+
     }
 
-    addSplat(x, y, z, scale0, scale1, scale2, rot0, rot1, rot2, rot3, r, g, b, opacity) {
+    addSplat(x, y, z, scale0, scale1, scale2, rot0, rot1, rot2, rot3, r, g, b, opacity, weights) {
         this.x.push(x);
         this.y.push(y);
         this.z.push(z);
@@ -40,6 +42,7 @@ class UncompressedSplatArray {
         this.f_dc_1.push(g);
         this.f_dc_2.push(b);
         this.opacity.push(opacity);
+        this.lbs_weights.push(weights);
         this.splatCount++;
     }
 }
@@ -60,7 +63,7 @@ export class SplatCompressor {
     uncompressedSplatArrayToSplatBuffer(splatArray) {
 
         const validSplats = SplatCompressor.createEmptyUncompressedSplatArray();
-        validSplats.addSplat(0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0);
+        validSplats.addSplat(0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, []);
 
         for (let i = 0; i < splatArray.splatCount; i++) {
             let alpha;
@@ -70,10 +73,11 @@ export class SplatCompressor {
                 alpha = 255;
             }
             if (alpha >= this.minimumAlpha) {
-                validSplats.addSplat(splatArray['x'][i], splatArray['y'][i], splatArray['z'][i],
-                                     splatArray['scale_0'][i], splatArray['scale_1'][i], splatArray['scale_2'][i],
-                                     splatArray['rot_0'][i], splatArray['rot_1'][i], splatArray['rot_2'][i], splatArray['rot_3'][i],
-                                     splatArray['f_dc_0'][i], splatArray['f_dc_1'][i], splatArray['f_dc_2'][i], splatArray['opacity'][i]);
+                validSplats.addSplat(splatArray['x'][i], splatArray['y'][i], splatArray['z'][i], 
+                                     splatArray['scale_0'][i], splatArray['scale_1'][i], splatArray['scale_2'][i], 
+                                     splatArray['rot_0'][i], splatArray['rot_1'][i], splatArray['rot_2'][i], splatArray['rot_3'][i], 
+                                     splatArray['f_dc_0'][i], splatArray['f_dc_1'][i], splatArray['f_dc_2'][i], splatArray['opacity'][i], 
+                                     splatArray['lbs_weights'][i]);
             }
         }
 
@@ -89,10 +93,12 @@ export class SplatCompressor {
         let bytesPerScale = SplatBuffer.CompressionLevels[this.compressionLevel].BytesPerScale;
         let bytesPerColor = SplatBuffer.CompressionLevels[this.compressionLevel].BytesPerColor;
         let bytesPerRotation = SplatBuffer.CompressionLevels[this.compressionLevel].BytesPerRotation;
+        let bytesPerLbsWeights = SplatBuffer.CompressionLevels[this.compressionLevel].bytesPerLbsWeights;
         const centerBuffer = new ArrayBuffer(bytesPerCenter * paddedSplatCount);
         const scaleBuffer = new ArrayBuffer(bytesPerScale * paddedSplatCount);
         const colorBuffer = new ArrayBuffer(bytesPerColor * paddedSplatCount);
         const rotationBuffer = new ArrayBuffer(bytesPerRotation * paddedSplatCount);
+        const lbsweightsBuffer = new ArrayBuffer(bytesPerLbsWeights * paddedSplatCount);
 
         const blockHalfSize = this.blockSize / 2.0;
         const compressionScaleRange = SplatBuffer.CompressionLevels[this.compressionLevel].ScaleRange;
@@ -116,6 +122,9 @@ export class SplatCompressor {
                     const center = new Float32Array(centerBuffer, outSplatIndex * bytesPerCenter, 3);
                     const scale = new Float32Array(scaleBuffer, outSplatIndex * bytesPerScale, 3);
                     const rot = new Float32Array(rotationBuffer, outSplatIndex * bytesPerRotation, 4);
+                    const lbsweight = new Float32Array(lbsweightsBuffer, outSplatIndex * bytesPerLbsWeights, 24);
+
+
                     if (validSplats['scale_0'][row] !== undefined) {
                         const quat = new THREE.Quaternion(validSplats['rot_1'][row], validSplats['rot_2'][row],
                                                           validSplats['rot_3'][row], validSplats['rot_0'][row]);
@@ -126,11 +135,18 @@ export class SplatCompressor {
                         scale.set([0.01, 0.01, 0.01]);
                         rot.set([1.0, 0.0, 0.0, 0.0]);
                     }
+                    const weight_list = []
+                    for (let _i = 0; _i < 24; _i++) {
+                        weight_list.push(validSplats['lbs_weights'][row][_i])
+                    }
+                    lbsweight.set(weight_list)
                     center.set([validSplats['x'][row], validSplats['y'][row], validSplats['z'][row]]);
                 } else {
                     const center = new Uint16Array(centerBuffer, outSplatIndex * bytesPerCenter, 3);
                     const scale = new Uint16Array(scaleBuffer, outSplatIndex * bytesPerScale, 3);
                     const rot = new Uint16Array(rotationBuffer, outSplatIndex * bytesPerRotation, 4);
+                    const lbsweight = new Uint16Array(lbsweightsBuffer, outSplatIndex * bytesPerLbsWeights, 24);
+
                     const thf = THREE.DataUtils.toHalfFloat.bind(THREE.DataUtils);
                     if (validSplats['scale_0'][row] !== undefined) {
                         const quat = new THREE.Quaternion(validSplats['rot_1'][row], validSplats['rot_2'][row],
@@ -142,6 +158,12 @@ export class SplatCompressor {
                         scale.set([thf(0.01), thf(0.01), thf(0.01)]);
                         rot.set([thf(1.), 0, 0, 0]);
                     }
+                    const weight_list = []
+                    for (let _i = 0; _i < 24; _i++) {
+                        weight_list.push(thf(validSplats['lbs_weights'][row][_i]))
+                    }
+                    lbsweight.set(weight_list)
+
                     bucketCenterDelta.set(validSplats['x'][row], validSplats['y'][row], validSplats['z'][row]).sub(bucketCenter);
                     bucketCenterDelta.x = Math.round(bucketCenterDelta.x * compressionScaleFactor) + compressionScaleRange;
                     bucketCenterDelta.x = clamp(bucketCenterDelta.x, 0, doubleCompressionScaleRange);
@@ -178,7 +200,7 @@ export class SplatCompressor {
         const bytesPerBucket = 12;
         const bucketsSize = bytesPerBucket * buckets.length;
         const splatDataBufferSize = centerBuffer.byteLength + scaleBuffer.byteLength +
-                                    colorBuffer.byteLength + rotationBuffer.byteLength;
+                                    colorBuffer.byteLength + rotationBuffer.byteLength + lbsweightsBuffer.byteLength;
 
         const headerArrayUint32 = new Uint32Array(header.buffer);
         const headerArrayFloat32 = new Float32Array(header.buffer);
@@ -200,6 +222,8 @@ export class SplatCompressor {
                     colorBuffer.byteLength).set(new Uint8Array(colorBuffer));
         new Uint8Array(unifiedBuffer, headerSize + centerBuffer.byteLength + scaleBuffer.byteLength + colorBuffer.byteLength,
                     rotationBuffer.byteLength).set(new Uint8Array(rotationBuffer));
+        new Uint8Array(unifiedBuffer, headerSize + centerBuffer.byteLength + scaleBuffer.byteLength + colorBuffer.byteLength + rotationBuffer.byteLength,
+                    lbsweightsBuffer.byteLength).set(new Uint8Array(lbsweightsBuffer));
 
         if (this.compressionLevel > 0) {
             const bucketArray = new Float32Array(unifiedBuffer, headerSize + splatDataBufferSize, buckets.length * 3);

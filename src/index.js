@@ -9,6 +9,7 @@ import { OrbitControls } from './OrbitControls.js';
 import { AbortablePromise } from './AbortablePromise.js';
 import { SceneFormat } from './SceneFormat.js';
 import { WebXRMode } from './webxr/WebXRMode.js';
+import { lbsSkinning } from './lbsSkinning.js';
 
 export {
     PlyParser,
@@ -21,5 +22,6 @@ export {
     OrbitControls,
     AbortablePromise,
     SceneFormat,
-    WebXRMode
+    WebXRMode,
+    lbsSkinning
 };

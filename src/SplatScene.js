@@ -11,6 +11,7 @@ export class SplatScene {
         this.quaternion = quaternion.clone();
         this.scale = scale.clone();
         this.transform = new THREE.Matrix4();
+        this.transforms = [];
         this.updateTransform();
     }
 
@@ -19,9 +20,15 @@ export class SplatScene {
         this.quaternion.copy(otherScene.quaternion);
         this.scale.copy(otherScene.scale);
         this.transform.copy(otherScene.transform);
+        this.transforms = otherScene.transforms;
     }
 
     updateTransform() {
         this.transform.compose(this.position, this.quaternion, this.scale);
+        
+        // We finally decided to separate two transforms
+        // for (let i=0; i<self.transforms.length; i++){
+        //     this.transforms[i].premultiply(this.transform)
+        // }
     }
 }

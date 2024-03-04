@@ -2,8 +2,9 @@ import { SplatCompressor } from './SplatCompressor.js';
 
 export class PlyParser {
 
-    constructor(plyBuffer) {
+    constructor(plyBuffer, is_gtu) {
         this.plyBuffer = plyBuffer;
+        this.is_gtu = is_gtu;
     }
 
     decodeHeader(plyBuffer) {
@@ -134,15 +135,26 @@ export class PlyParser {
 
         const propertiesToRead = ['scale_0', 'scale_1', 'scale_2', 'rot_0', 'rot_1', 'rot_2', 'rot_3',
                                   'x', 'y', 'z', 'f_dc_0', 'f_dc_1', 'f_dc_2', 'opacity'];
+        
+        for (let i = 0; i < 24; i++) {
+            propertiesToRead.push(`lbs_w_${i}`);
+        }
 
         const splatArray = SplatCompressor.createEmptyUncompressedSplatArray();
 
         for (let row = 0; row < splatCount; row++) {
             this.readRawVertexFast(vertexData, row * plyRowSize, fieldOffsets, propertiesToRead, propertyTypes, rawVertex);
             if (rawVertex['scale_0'] !== undefined) {
-                splatArray['scale_0'][row] = Math.exp(rawVertex['scale_0']);
-                splatArray['scale_1'][row] = Math.exp(rawVertex['scale_1']);
-                splatArray['scale_2'][row] = Math.exp(rawVertex['scale_2']);
+                if (this.is_gtu > 0){
+                    splatArray['scale_0'][row] = rawVertex['scale_0'];
+                    splatArray['scale_1'][row] = rawVertex['scale_1'];
+                    splatArray['scale_2'][row] = rawVertex['scale_2'];
+                }
+                else{
+                    splatArray['scale_0'][row] = Math.exp(rawVertex['scale_0']);
+                    splatArray['scale_1'][row] = Math.exp(rawVertex['scale_1']);
+                    splatArray['scale_2'][row] = Math.exp(rawVertex['scale_2']);
+                }
             } else {
                 splatArray['scale_0'][row] = 0.01;
                 splatArray['scale_1'][row] = 0.01;
@@ -161,6 +173,19 @@ export class PlyParser {
             }
             if (rawVertex['opacity'] !== undefined) {
                 splatArray['opacity'][row] = (1 / (1 + Math.exp(-rawVertex['opacity']))) * 255;
+            }
+
+            if (rawVertex['lbs_w_0'] !== undefined) {
+
+                const lbs_weights = [];
+                for (let _i = 0; _i < 24; _i++) {
+                    lbs_weights.push(rawVertex[`lbs_w_${_i}`]);
+                }
+                splatArray['lbs_weights'][row] = lbs_weights;
+                
+            }
+            else {
+                splatArray['lbs_weights'][row] = [];
             }
 
             splatArray['rot_0'][row] = rawVertex['rot_0'];

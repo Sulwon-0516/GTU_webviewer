@@ -1,9 +1,10 @@
 import * as http from 'http';
+import * as https from 'https';
 import * as fs from 'fs';
 import * as path from 'path';
 
 let baseDirectory = '.';
-let port = 8080;
+let port = 3000;
 let host = '0.0.0.0';
 let lasttRequesTime = performance.now() / 1000;
 for(let i = 0; i < process.argv.length; ++i) {
@@ -18,8 +19,13 @@ for(let i = 0; i < process.argv.length; ++i) {
   } 
 }
 
-http
-  .createServer(function (request, response) {
+const options = {
+  key: fs.readFileSync('/home/inhee/VCL/visualizer/key.pem'),
+  cert: fs.readFileSync('/home/inhee/VCL/visualizer/server.crt')
+};
+
+https
+  .createServer(options, (request, response) => {
 
     response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
     response.setHeader("Cross-Origin-Embedder-Policy", "require-corp");

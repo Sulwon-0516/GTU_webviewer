@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="x-ua-compatible" content="ie=edge">
-  <title>3D Gaussian Splat Demo - Truck</title>
+  <title>3D Gaussian Splat Demo - Garden</title>
   <script type="text/javascript" src="js/util.js"></script>
   <script type="importmap">
     {
@@ -30,12 +30,16 @@
 <body>
   <script type="module">
     import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
+    import * as THREE from 'three';
+    
     const viewer = new GaussianSplats3D.Viewer({
-        'cameraUp': [0, -1, -.17],
-        'initialCameraPosition': [-5, -1, -1],
-        'initialCameraLookAt': [1, 1, 0]
+      'cameraUp': [0, 1., 0.],
+      'initialCameraPosition': [0., 1.0, 5.0],
+      'initialCameraLookAt': [0., 0., 0.3],
+      'integerBasedSort': !isMobile(),
+      'halfPrecisionCovariancesOnGPU': !isMobile(),
     });
-    let path = 'assets/data/truck/truck';
+    let path = 'assets/zju377/zju377';
     path += isMobile() ? '.ksplat' : '_high.ksplat';
     viewer.addSplatScene(path)
     .then(() => {
@@ -43,3 +47,5 @@
     });
   </script>
 </body>
+
+</html>

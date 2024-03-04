@@ -13,6 +13,7 @@ const compressionLevel = (process.argv.length >= 5) ? parseInt(process.argv[4]) 
 const splatAlphaRemovalThreshold = (process.argv.length >= 6) ? parseInt(process.argv[5]) : 1;
 const blockSize = (process.argv.length >= 7) ? parseFloat(process.argv[6]) : 5.0;
 const bucketSize = (process.argv.length >= 8) ? parseInt(process.argv[7]) : 256;
+const is_gtu = (process.argv.length >= 9) ? parseInt(process.argv[8]) : 0;
 
 const fileData = fs.readFileSync(intputFile);
 const isPly = intputFile.toLowerCase().trim().endsWith('.ply');
@@ -31,14 +32,14 @@ fs.writeFileSync(outputFile, combined);
 function fileBufferToSplatBuffer(fileBufferData, isPly, isStandardSplat, compressionLevel, alphaRemovalThreshold) {
     let splatBuffer;
     if (isPly) {
-        const plyParser = new GaussianSplats3D.PlyParser(fileData.buffer);
+        const plyParser = new GaussianSplats3D.PlyParser(fileData.buffer, is_gtu);
         splatBuffer = plyParser.parseToSplatBuffer(compressionLevel, alphaRemovalThreshold, blockSize, bucketSize);
     } else {
         if (isStandardSplat) {
             const splatArray = GaussianSplats3D.SplatLoader.parseStandardSplatToUncompressedSplatArray(fileBufferData);
             const splatCompressor = new GaussianSplats3D.SplatCompressor(compressionLevel, alphaRemovalThreshold, blockSize, bucketSize);
             splatBuffer = splatCompressor.uncompressedSplatArrayToSplatBuffer(splatArray);
-        } else {
+        } else {    
             splatBuffer = new GaussianSplats3D.SplatBuffer(fileBufferData);
         }
     }

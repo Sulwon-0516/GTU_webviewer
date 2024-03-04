@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>3D Gaussian Splat Demo - Garden</title>
+  <script type="text/javascript" src="js/util.js"></script>
+  <script type="importmap">
+    {
+        "imports": {
+            "three": "./lib/three.module.js",
+            "@mkkellogg/gaussian-splats-3d": "./lib/gaussian-splats-3d.module.js"
+        }
+    }
+  </script>
+  <style>
+
+    body {
+      background-color: #000000;
+      height: 100vh;
+      margin: 0px;
+    }
+
+  </style>
+
+</head>
+
+<body>
+  <script type="module">
+    import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
+    import * as THREE from 'three';
+
+
+    // First Load json matrix
+    async function loadJson(url) {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        // Use your JSON data as needed
+      } catch (error) {
+        console.error("Could not load JSON", error);
+      }
+    }
+
+    function loadJsonSync(url) {
+      var request = new XMLHttpRequest();
+      request.open('GET', url, false); // Set async to false
+      try {
+        request.send(null);
+        if (request.status === 200) {
+          return JSON.parse(request.responseText);
+        } else {
+          throw new Error(`HTTP error! status: ${request.status}`);
+        }
+      } catch (error) {
+        console.error("Could not load JSON", error);
+      }
+    }
+    const json_tfs = loadJsonSync('assets/zju377_ours/zju377_tfs.json');
+
+
+    const viewer = new GaussianSplats3D.Viewer({
+      'cameraUp': [0, 1., 0.],
+      'initialCameraPosition': [0., 1.0, 5.0],
+      'initialCameraLookAt': [0., 0., 0.3],
+      'integerBasedSort': !isMobile(),
+      'halfPrecisionCovariancesOnGPU': !isMobile(),
+      'dynamicScene': true
+    });
+    let path = 'assets/zju377_ours/zju377';
+    path += isMobile() ? '.ksplat' : '_high.ksplat';
+
+    // Get all keys from the object, and sort them numerically
+    const keysSorted = Object.keys(json_tfs).sort((a, b) => parseInt(a) - parseInt(b));
+    const AnimationFPS = 24;
+    const SingleAnimationCycle = keysSorted.length / AnimationFPS;   // in ms format
+
+
+    // First load canonical Mesh
+    const SL = new GaussianSplats3D.SplatLoader()
+    SL.loadFromURL(path, false, 0, 0).then(
+      (base_splatBuffers) => {
+        let rotationArray = base_splatBuffers.rotationArray;
+        let centerArray = base_splatBuffers.centerArray;
+
+        // Start Rendering    
+        viewer.addSplatScenes(
+            [{
+              'path': path,
+              'splatAlphaRemovalThreshold': 0,
+            }], true  // Second One is for 
+        ).then(() => {
+          viewer.start();
+          const human_index = 0;
+          const LbsWeightComponentCount = 24;
+          console.log(rotationArray)
+        
+          let startTime = performance.now() / 1000.0;
+          requestAnimationFrame(update);
+          function update() {
+            requestAnimationFrame(update);
+            const timeDelta = performance.now() / 1000.0 - startTime;   // to visualize FPS on the renderer
+            const timeIndex = (timeDelta % SingleAnimationCycle) * 24;         // Get remaining of cycles
+
+            console.log('Animation TimeIndex: ',timeIndex);
+            const frame_json = json_tfs[keysSorted[Math.floor(timeIndex)]];
+            const splatScene = viewer.getSplatScene(human_index);
+
+            // Convert to an array of THREE.Matrix4
+            const transforms = frame_json[2].map(subArray => {
+              const matrix = new THREE.Matrix4();
+              const elements = subArray.flat(); // Flatten the 4x4 array to a single array of 16 elements
+              matrix.set(...elements);
+              return matrix;
+            });
+
+            // Calculate transforms
+            const lbsTransforms = [];
+            for (let i = 0; i < splatCount; i++) {
+              // Get lbs skinning weights (lbsTransform)
+              const LbsWeightBase = i * LbsWeightComponentCount;
+              const lbsTransform = new THREE.Matrix4();
+              let lbsweight = 0;
+              const jointTransform = new THREE.Matrix4();
+              for (let j=0; j <24; j++) {
+                  lbsweight = splatScene.SplatBuffer.fbf(splatScene.SplatBuffer.lbsweightArray[LbsWeightBase+j]);
+                  jointTransform.copy(transforms[j])
+                  jointTransform.multiplyScalar(lbsweight)
+                  if (j==0){
+                      lbsTransform.copy(jointTransform);
+                  }
+                  else{
+                      for (let i = 0; i < lbsTransform.elements.length; i++) {
+                          lbsTransform.elements[i] = lbsTransform.elements[i] + jointTransform.elements[i];
+                        }
+                  }
+              }
+              lbsTransforms.push(lbsTransform)
+            }
+
+            // Update transforms
+            splatScene.transforms = lbsTransforms;
+
+
+
+            // GaussianSplats3D.lbsSkinning(centerArray, rotationArray, transforms, splatScene.splatBuffer)
+            
+
+            // Apply global Transformations
+            // const position = new THREE.Vector3(...frame_json[1]);
+            // const scale = new THREE.Vector3(frame_json[0], frame_json[0], frame_json[0]);
+            // splatScene.position.copy(position);
+            // splatScene.scale.copy(scale);
+          }
+
+        })
+
+      }
+    );
+
+    
+    
+  </script>
+</body>
+
+</html>
