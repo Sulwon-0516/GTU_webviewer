@@ -717,11 +717,11 @@ export class Viewer {
                                                                                      e.data.precomputedDistancesOffset,
                                                                                      splatCount);
                          this.sortWorkerTransforms = new Float32Array(e.data.transformsBuffer,
-                                                                      e.data.transformsOffset, Constants.MaxSplatCounts * 16);
+                                                                      e.data.transformsOffset, Constants.MaxScenes * 16);
                     } else {
                         this.sortWorkerIndexesToSort = new Uint32Array(splatCount);
                         this.sortWorkerPrecomputedDistances = new DistancesArrayType(splatCount);
-                        this.sortWorkerTransforms = new Float32Array(Constants.MaxSplatCounts * 16);
+                        this.sortWorkerTransforms = new Float32Array(Constants.MaxScenes * 16);
                     }
                     for (let i = 0; i < splatCount; i++) this.sortWorkerIndexesToSort[i] = i;
                 } else if (e.data.sortSetupComplete) {
@@ -1188,7 +1188,7 @@ export class Viewer {
             let splatRenderCount = 0;
 
             for (let s = 0; s < splatTree.subTrees.length; s++) {
-                const splatscene = this.getSplatScene(s);
+                // const splatscene = this.getSplatScene(s);
                 const subTree = splatTree.subTrees[s];
                 modelView.copy(baseModelView);
                 if (this.splatMesh.dynamicMode) {
@@ -1200,25 +1200,25 @@ export class Viewer {
                     const node = subTree.nodesWithIndexes[i];
                     tempVector.copy(node.center);
                     
-                    // There's no corresponding transformation for node.center
-                    // Here, instead, we use average of transformation. 
-                    // If it's dynamic case, APPLY averagge of transformation on node center
-                    if (this.splatMesh.dynamicMode && node.data.indexes > 0) {
-                        const globalIndexes = node.data.indexes;
-                        const lbsTransform = new THREE.Matrix4();
+                    // // There's no corresponding transformation for node.center
+                    // // Here, instead, we use average of transformation. 
+                    // // If it's dynamic case, APPLY averagge of transformation on node center
+                    // if (this.splatMesh.dynamicMode && node.data.indexes > 0) {
+                    //     const globalIndexes = node.data.indexes;
+                    //     const lbsTransform = new THREE.Matrix4();
 
-                        for (let gi=0; gi > globalIndexes.length; gi++){
-                            if (gi==0){
-                                lbsTransform.copy(splatScene.transforms[globalIndexes[gi]]);
-                            }
-                            else{
-                                for (let i = 0; i < lbsTransform.elements.length; i++) {
-                                    lbsTransform.elements[i] = lbsTransform.elements[i] + splatScene.transforms[globalIndexes[gi]].elements[i];
-                                  }
-                            }
-                        }
-                        tempVector.applyMatrix4(lbsTransform);
-                    }
+                    //     for (let gi=0; gi > globalIndexes.length; gi++){
+                    //         if (gi==0){
+                    //             lbsTransform.copy(splatScene.transforms[globalIndexes[gi]]);
+                    //         }
+                    //         else{
+                    //             for (let i = 0; i < lbsTransform.elements.length; i++) {
+                    //                 lbsTransform.elements[i] = lbsTransform.elements[i] + splatScene.transforms[globalIndexes[gi]].elements[i];
+                    //               }
+                    //         }
+                    //     }
+                    //     tempVector.applyMatrix4(lbsTransform);
+                    // }
 
 
                     tempVector.applyMatrix4(modelView);

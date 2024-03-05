@@ -65,9 +65,9 @@
 
 
     const viewer = new GaussianSplats3D.Viewer({
-      'cameraUp': [0, 1., 0.],
-      'initialCameraPosition': [0., 1.0, 5.0],
-      'initialCameraLookAt': [0., 0., 0.3],
+      'cameraUp': [0, 0., -1.],
+      'initialCameraPosition': [-3.0, -1.0, -3.0],
+      'initialCameraLookAt': [0.3, 0.5, -2.],
       'integerBasedSort': !isMobile(),
       'halfPrecisionCovariancesOnGPU': !isMobile(),
       'dynamicScene': true
@@ -119,43 +119,48 @@
               return matrix;
             });
 
-            // Calculate transforms
-            const lbsTransforms = [];
-            for (let i = 0; i < splatCount; i++) {
-              // Get lbs skinning weights (lbsTransform)
-              const LbsWeightBase = i * LbsWeightComponentCount;
-              const lbsTransform = new THREE.Matrix4();
-              let lbsweight = 0;
-              const jointTransform = new THREE.Matrix4();
-              for (let j=0; j <24; j++) {
-                  lbsweight = splatScene.SplatBuffer.fbf(splatScene.SplatBuffer.lbsweightArray[LbsWeightBase+j]);
-                  jointTransform.copy(transforms[j])
-                  jointTransform.multiplyScalar(lbsweight)
-                  if (j==0){
-                      lbsTransform.copy(jointTransform);
-                  }
-                  else{
-                      for (let i = 0; i < lbsTransform.elements.length; i++) {
-                          lbsTransform.elements[i] = lbsTransform.elements[i] + jointTransform.elements[i];
-                        }
-                  }
-              }
-              lbsTransforms.push(lbsTransform)
-            }
+            // // Calculate transforms
+            // const lbsTransforms = [];
+            // for (let i = 0; i < splatCount; i++) {
+            //   // Get lbs skinning weights (lbsTransform)
+            //   const LbsWeightBase = i * LbsWeightComponentCount;
+            //   const lbsTransform = new THREE.Matrix4();
+            //   let lbsweight = 0;
+            //   const jointTransform = new THREE.Matrix4();
+            //   for (let j=0; j <24; j++) {
+            //       lbsweight = splatScene.SplatBuffer.fbf(splatScene.SplatBuffer.lbsweightArray[LbsWeightBase+j]);
+            //       jointTransform.copy(transforms[j])
+            //       jointTransform.multiplyScalar(lbsweight)
+            //       if (j==0){
+            //           lbsTransform.copy(jointTransform);
+            //       }
+            //       else{
+            //           for (let i = 0; i < lbsTransform.elements.length; i++) {
+            //               lbsTransform.elements[i] = lbsTransform.elements[i] + jointTransform.elements[i];
+            //             }
+            //       }
+            //   }
+            //   lbsTransforms.push(lbsTransform)
+            // }
 
-            // Update transforms
-            splatScene.transforms = lbsTransforms;
+            // // Update transforms
+            // splatScene.transforms = lbsTransforms;
 
 
+            // Update SplatBuffer center and rotations together!
+            // This changes sortworkers' queires splatData
+            GaussianSplats3D.lbsSkinning(centerArray, rotationArray, transforms, splatScene.splatBuffer);
 
-            // GaussianSplats3D.lbsSkinning(centerArray, rotationArray, transforms, splatScene.splatBuffer)
+            // Update sceneMesh
+            viewer.splatMesh.updateDataFromSplatBuffers();
+
             
 
             // Apply global Transformations
-            // const position = new THREE.Vector3(...frame_json[1]);
-            // const scale = new THREE.Vector3(frame_json[0], frame_json[0], frame_json[0]);
-            // splatScene.position.copy(position);
-            // splatScene.scale.copy(scale);
+            const position = new THREE.Vector3(...frame_json[1]);
+            const scale = new THREE.Vector3(frame_json[0], frame_json[0], frame_json[0]);
+            splatScene.position.copy(position);
+            splatScene.scale.copy(scale);
           }
 
         })

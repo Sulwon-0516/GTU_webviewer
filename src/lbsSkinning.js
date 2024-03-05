@@ -9,10 +9,11 @@ export function lbsSkinning(centerArray, rotationArray, transforms, SplatBuffer)
     const rotation = new THREE.Quaternion();
     const rotationMatrix = new THREE.Matrix3();
     const lbsrotationMatrix = new THREE.Matrix3();
+    const lbstransl = new THREE.Vector3();
     const tempMatrix4 = new THREE.Matrix4();
 
     function thf(f, compressionLevel) {
-        if (compressionLevel === 0) {
+        if (compressionLevel == 0) {
             return f;
         } else {
             return THREE.DataUtils.toHalfFloat(f);
@@ -42,6 +43,8 @@ export function lbsSkinning(centerArray, rotationArray, transforms, SplatBuffer)
                   }
             }
         }
+        lbsrotationMatrix.setFromMatrix4(lbsTransform);
+        lbstransl.set(lbsTransform.elements[12], lbsTransform.elements[13], lbsTransform.elements[14])
 
         // Move Centers first
         const centerSrcBase = i * CenterComponentCount;
@@ -59,7 +62,8 @@ export function lbsSkinning(centerArray, rotationArray, transforms, SplatBuffer)
             center.z = centerArray[centerSrcBase + 2];
         }
         // 'transform' is assumed to be a single Matrix4
-        center.applyMatrix4(lbsTransform);
+        center.applyMatrix3(lbsrotationMatrix);
+        center.addVectors(center, lbstransl)
 
         SplatBuffer.centerArray[centerSrcBase] = thf(center.x, SplatBuffer.compressionLevel);
         SplatBuffer.centerArray[centerSrcBase + 1] = thf(center.y, SplatBuffer.compressionLevel);
@@ -74,8 +78,8 @@ export function lbsSkinning(centerArray, rotationArray, transforms, SplatBuffer)
                      SplatBuffer.fbf(rotationArray[rotationBase]));
         tempMatrix4.makeRotationFromQuaternion(rotation);
         rotationMatrix.setFromMatrix4(tempMatrix4);
-        lbsrotationMatrix.setFromMatrix4(lbsTransform);
         rotationMatrix.premultiply(lbsrotationMatrix);
+        rotationMatrix.transpose();
         tempMatrix4.set(
             rotationMatrix.elements[0], rotationMatrix.elements[1], rotationMatrix.elements[2], 0,
             rotationMatrix.elements[3], rotationMatrix.elements[4], rotationMatrix.elements[5], 0,
@@ -84,10 +88,10 @@ export function lbsSkinning(centerArray, rotationArray, transforms, SplatBuffer)
           );
         rotation.setFromRotationMatrix(tempMatrix4);
 
-        SplatBuffer.rotationArray[rotationBase] = thf(rotation.x, SplatBuffer.compressionLevel);
-        SplatBuffer.rotationArray[rotationBase + 1] = thf(rotation.y, SplatBuffer.compressionLevel);
-        SplatBuffer.rotationArray[rotationBase + 2] = thf(rotation.z, SplatBuffer.compressionLevel);
-        SplatBuffer.rotationArray[rotationBase + 3] = thf(rotation.w, SplatBuffer.compressionLevel);
+        SplatBuffer.rotationArray[rotationBase + 1] = thf(rotation.x, SplatBuffer.compressionLevel);
+        SplatBuffer.rotationArray[rotationBase + 2] = thf(rotation.y, SplatBuffer.compressionLevel);
+        SplatBuffer.rotationArray[rotationBase + 3] = thf(rotation.z, SplatBuffer.compressionLevel);
+        SplatBuffer.rotationArray[rotationBase] = thf(rotation.w, SplatBuffer.compressionLevel);
     }
 
     console.log('finished lbs')
